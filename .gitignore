@@ -1,0 +1,31 @@
+# Terraform state and cache
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Terraform overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terragrunt cache
+**/.terragrunt-cache/
+
+# Environment and secrets
+.env
+*.pem
+*.key
+secrets.auto.tfvars
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
