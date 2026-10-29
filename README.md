@@ -1,7 +1,7 @@
 # AWS IaC Blueprint
 
 > Portfolio / learning template. Infrastructure as Code with Terraform and Terragrunt on AWS.
-> No real AWS account required. Validate and apply everything locally with LocalStack.
+> No real AWS account required. Validate and apply everything locally with MiniStack.
 
 ![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.5.0-7B42BC?logo=terraform)
 ![Terragrunt](https://img.shields.io/badge/Terragrunt-%3E%3D0.50-FA7343)
@@ -16,7 +16,7 @@ A template that demonstrates how to structure a real-world IaC project where **a
 - **Reusable Terraform modules** - no hardcoded values, no provider declarations, no `terraform {}` block; clean, testable units
 - **Terragrunt orchestration** - injects provider, backend, and version constraints per environment via `root.hcl`
 - **Environment isolation** - `_common/` holds module logic; `live/<env>/` holds one `env.hcl` per environment; adding `staging/` or `prod/` is one new file, zero module changes
-- **LocalStack integration** - full `apply` -> inspect -> `destroy` cycle with no AWS account and no costs
+- **MiniStack integration** - full `apply` -> inspect -> `destroy` cycle with no AWS account, token, or costs
 
 ---
 
@@ -76,13 +76,13 @@ Policy documents are computed locally by `aws_iam_policy_document` with no AWS A
 │   │   └── iam/terragrunt.hcl
 │   └── live/
 │       └── dev/
-│           ├── env.hcl              # region, account ID, CIDRs, LocalStack endpoint
+│           ├── env.hcl              # region, account ID, CIDRs, local AWS endpoint
 │           ├── vpc/terragrunt.hcl   # 3 lines: include root + include _common/vpc
 │           ├── s3/terragrunt.hcl
 │           └── iam/terragrunt.hcl
 │
-├── localstack/
-│   └── docker-compose.yml     # LocalStack Pro container
+├── ministack/
+│   └── docker-compose.yml     # local AWS emulator
 │
 ├── .env.example               # template - copy to .env and fill in values
 └── .gitignore
@@ -136,7 +136,7 @@ Base tags (`Project`, `Environment`, `Owner`, `ManagedBy`) are applied via `prov
 | Terraform | 1.5.0 | `brew install terraform` |
 | Terragrunt | 0.50.0 | `brew install terragrunt` |
 | Git | any | required for `get_repo_root()` |
-| Docker | any | optional - LocalStack only |
+| Docker | any | optional - local emulation only |
 
 > `get_repo_root()` requires a git repository. Run `git init` once before using Terragrunt commands.
 
@@ -161,29 +161,28 @@ terragrunt --working-dir terragrunt/live/dev run --all -- plan
 
 ---
 
-## LocalStack - full apply without a real AWS account
+## MiniStack - full apply without a real AWS account
 
-LocalStack emulates the AWS API locally. All Terraform calls go to `localhost:4566` instead of real AWS. The `LOCALSTACK_ENDPOINT` variable is the only switch. When set, `root.hcl` injects `s3_use_path_style = true` and an `endpoints {}` block into the generated provider automatically.
+MiniStack emulates AWS APIs locally. Terraform calls go to `localhost:4566` instead of real AWS. The `AWS_ENDPOINT_URL` variable is the only switch. When set, `root.hcl` injects `s3_use_path_style = true` and an `endpoints {}` block into the generated provider automatically.
 
 ```bash
 # 1. Copy and configure environment variables
 cp .env.example .env
-# Edit .env - add your LocalStack auth token from https://app.localstack.cloud/workspace/auth-tokens
 
 # 2. Source environment variables
 source .env
 
-# 3. Pull the latest LocalStack image
-docker compose -f localstack/docker-compose.yml pull
+# 3. Pull the pinned MiniStack image
+docker compose -f ministack/docker-compose.yml pull
 
-# 4. Start LocalStack
-docker compose -f localstack/docker-compose.yml up -d
+# 4. Start MiniStack
+docker compose -f ministack/docker-compose.yml up -d
 
 # 5. Confirm it is healthy
-docker compose -f localstack/docker-compose.yml ps
+docker compose -f ministack/docker-compose.yml ps
 
-# 6. Follow the logs until "Ready." appears, then Ctrl+C
-docker compose -f localstack/docker-compose.yml logs -f
+# 6. Inspect the local emulator health
+curl --fail http://localhost:4566/_ministack/health
 
 # 7. Plan all modules (review before applying)
 terragrunt --working-dir terragrunt/live/dev run --all -- plan
@@ -209,13 +208,9 @@ aws --endpoint-url=http://localhost:4566 ec2 describe-vpcs --query 'Vpcs[].{ID:V
 terragrunt --working-dir terragrunt/live/dev run --all -- destroy
 ```
 
-To target a real AWS account: unset `LOCALSTACK_ENDPOINT` and configure `~/.aws/credentials` normally.
+To target a real AWS account: unset `AWS_ENDPOINT_URL` and configure `~/.aws/credentials` normally.
 
-### LocalStack dashboard
-
-Access the dashboard at [app.localstack.cloud](https://app.localstack.cloud) and add a new instance with endpoint `http://localhost.localstack.cloud:4566` to inspect resources visually.
-
-![LocalStack dashboard](.github/localstack.png)
+> MiniStack needs access to `/var/run/docker.sock` to create the local k3s cluster used by EKS in a later step. This grants the container control over the local Docker daemon and must only be used in a trusted development environment.
 
 ---
 
@@ -223,11 +218,10 @@ Access the dashboard at [app.localstack.cloud](https://app.localstack.cloud) and
 
 | Variable | Local value | Purpose |
 |----------|-------------|---------|
-| `AWS_ACCESS_KEY_ID` | `test` | LocalStack accepts any non-empty value |
+| `AWS_ACCESS_KEY_ID` | `test` | Local dummy credential |
 | `AWS_SECRET_ACCESS_KEY` | `test` | Same |
 | `AWS_DEFAULT_REGION` | `us-east-1` | Must match `env.hcl` |
-| `LOCALSTACK_AUTH_TOKEN` | your token | Required for Pro features and cloud dashboard |
-| `LOCALSTACK_ENDPOINT` | `http://localhost:4566` | Redirects all AWS API calls to LocalStack |
+| `AWS_ENDPOINT_URL` | `http://localhost:4566` | Redirects AWS API calls to MiniStack |
 
 ---
 

@@ -1,5 +1,5 @@
 # terragrunt/live/dev/env.hcl
-# Dev environment variables — region, account ID, networking CIDRs, tags, and LocalStack endpoint.
+# Dev environment variables — region, account ID, networking CIDRs, tags, and local AWS endpoint.
 
 locals {
   environment    = "dev"
@@ -17,10 +17,10 @@ locals {
     CostCenter = "engineering"
   }
 
-  # Set LOCALSTACK_ENDPOINT=http://localhost:4566 to redirect all AWS API calls to LocalStack.
+  # Set AWS_ENDPOINT_URL=http://localhost:4566 to redirect AWS API calls to MiniStack.
   # Leave unset (or empty) to target real AWS.
   # prod/env.hcl should not declare this variable.
-  localstack_endpoint = get_env("LOCALSTACK_ENDPOINT", "")
+  aws_endpoint = get_env("AWS_ENDPOINT_URL", "")
 
   # Networking — adjust per environment to avoid CIDR conflicts between dev / staging / prod.
   vpc_cidr             = "10.0.0.0/16"

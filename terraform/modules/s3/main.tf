@@ -5,7 +5,7 @@ resource "aws_s3_bucket" "this" {
   bucket = "${var.project_name}-${var.environment}-${var.bucket_suffix}"
 
   tags = merge(var.tags, {
-    Name      = "${var.project_name}-${var.environment}-${var.bucket_suffix}"
+    Name  = "${var.project_name}-${var.environment}-${var.bucket_suffix}"
     Layer = var.layer
   })
 }
