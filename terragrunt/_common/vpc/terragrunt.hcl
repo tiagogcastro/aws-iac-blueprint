@@ -1,4 +1,3 @@
-# terragrunt/_common/vpc/terragrunt.hcl
 # Shared VPC module configuration — source path and inputs applied to every environment.
 
 terraform {

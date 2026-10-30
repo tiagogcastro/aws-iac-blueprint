@@ -1,4 +1,3 @@
-# terraform/modules/vpc/variables.tf
 # Input variable declarations for the VPC module.
 
 variable "project_name" {

@@ -1,4 +1,3 @@
-# terraform/modules/vpc/outputs.tf
 # Exported values from the VPC module consumed by dependent modules.
 
 output "aws_vpc_id" {

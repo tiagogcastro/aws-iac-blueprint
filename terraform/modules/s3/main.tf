@@ -1,4 +1,3 @@
-# terraform/modules/s3/main.tf
 # S3 bucket with versioning, AES256 server-side encryption, and public access block.
 
 resource "aws_s3_bucket" "this" {

@@ -45,15 +45,23 @@ Generic object storage bucket. Provisions:
 
 The `layer` input accepts `raw`, `processed`, or `curated` and is validated at plan time.
 
-### IAM - `terraform/modules/iam`
+### IAM - `terraform/modules/iam/{s3,eks}`
 
-Least-privilege access role for S3. Provisions:
+IAM is split into independent service modules:
 
-- **IAM role** - `trusted_services` list defines which AWS services can assume it
-- **IAM policy** - `ListBucket` + `GetObject` / `PutObject` / `DeleteObject` on the target bucket
-- **Role-policy attachment**
+- **`iam/s3`** - service role, least-privilege bucket policy, and attachment
+- **`iam/eks`** - control-plane and node roles, AWS-managed policy attachments, and an ECR pull policy
 
-Policy documents are computed locally by `aws_iam_policy_document` with no AWS API calls during `validate` or `plan`.
+Each module keeps its roles, policies, and attachments in separate files. There is no intermediate IAM composition module.
+
+### EKS - `terraform/modules/eks`
+
+Local Kubernetes cluster backed by k3s. Provisions:
+
+- **EKS cluster** - Kubernetes 1.31 on the private VPC subnets
+- **Managed node group** - `t3.medium`, scaling from 1 to 2 nodes
+
+IAM resources are provided by the IAM module rather than created inside EKS.
 
 ---
 
@@ -65,7 +73,10 @@ Policy documents are computed locally by `aws_iam_policy_document` with no AWS A
 │   └── modules/
 │       ├── vpc/          # VPC, subnets, route tables, IGW
 │       ├── s3/           # S3 bucket (versioning, encryption, public-access block)
-│       └── iam/          # IAM role + least-privilege S3 policy
+│       ├── iam/
+│       │   ├── s3/       # S3 role, policy, and attachment
+│       │   └── eks/      # EKS roles, policies, and attachments
+│       └── eks/          # EKS cluster and managed node group
 │
 ├── terragrunt/
 │   ├── global.hcl             # project_name, owner
@@ -73,13 +84,19 @@ Policy documents are computed locally by `aws_iam_policy_document` with no AWS A
 │   ├── _common/               # module inputs shared across all environments
 │   │   ├── vpc/terragrunt.hcl
 │   │   ├── s3/terragrunt.hcl
-│   │   └── iam/terragrunt.hcl
+│   │   ├── iam/
+│   │   │   ├── s3/terragrunt.hcl
+│   │   │   └── eks/terragrunt.hcl
+│   │   └── eks/terragrunt.hcl
 │   └── live/
 │       └── dev/
 │           ├── env.hcl              # region, account ID, CIDRs, local AWS endpoint
-│           ├── vpc/terragrunt.hcl   # 3 lines: include root + include _common/vpc
+│           ├── vpc/terragrunt.hcl
 │           ├── s3/terragrunt.hcl
-│           └── iam/terragrunt.hcl
+│           ├── iam/
+│           │   ├── s3/terragrunt.hcl
+│           │   └── eks/terragrunt.hcl
+│           └── eks/terragrunt.hcl
 │
 ├── ministack/
 │   └── docker-compose.yml     # local AWS emulator
@@ -96,20 +113,21 @@ Policy documents are computed locally by `aws_iam_policy_document` with no AWS A
 |------|-------|----------|
 | `global.hcl` | All environments | `project_name`, `owner` |
 | `root.hcl` | Every module | Provider, backend, version constraints |
-| `_common/<mod>/terragrunt.hcl` | Every environment | Module source, inputs, dependencies |
+| `_common/<unit>/terragrunt.hcl` | Every environment | Module source, inputs, dependencies |
 | `live/<env>/env.hcl` | One environment | Region, account ID, CIDRs, skip-flags, `extra_tags` |
-| `live/<env>/<mod>/terragrunt.hcl` | One env x module | 3 lines: include root + include _common |
+| `live/<env>/<unit>/terragrunt.hcl` | One environment x unit | Includes `root.hcl` and the corresponding `_common` configuration |
 
-**Adding a new environment** = create `live/staging/` with one `env.hcl` and three 3-line module files. Zero changes to modules or `root.hcl`.
+**Adding a new environment** = create `live/staging/` with one `env.hcl` and one entry file per module. Zero changes to Terraform modules or `root.hcl`.
 
 ### Dependency order
 
 Terragrunt reads `dependency` blocks and builds the execution graph automatically:
 
-- `vpc` and `s3` have no dependency between them, they run in parallel
-- `iam` depends on `s3` (needs the bucket ARN), it runs after `s3` is applied
+- `vpc`, `s3`, and `iam/eks` have no upstream dependencies and can run in parallel
+- `iam/s3` depends on `s3` because its policy needs the bucket ARN
+- `eks` depends on `vpc` for private subnet IDs and on `iam/eks` for role ARNs
 
-The `iam` module carries `mock_outputs` for the S3 dependency so `validate` and `plan` work before `s3` is applied.
+Dependency blocks carry mock outputs so `validate` and `plan` work before their dependencies are applied.
 
 ---
 
@@ -136,7 +154,7 @@ Base tags (`Project`, `Environment`, `Owner`, `ManagedBy`) are applied via `prov
 | Terraform | 1.5.0 | `brew install terraform` |
 | Terragrunt | 0.50.0 | `brew install terragrunt` |
 | Git | any | required for `get_repo_root()` |
-| Docker | any | optional - local emulation only |
+| Docker | any | required for local MiniStack and its k3s cluster |
 
 > `get_repo_root()` requires a git repository. Run `git init` once before using Terragrunt commands.
 
@@ -187,13 +205,15 @@ curl --fail http://localhost:4566/_ministack/health
 # 7. Plan all modules (review before applying)
 terragrunt --working-dir terragrunt/live/dev run --all -- plan
 
-# 8. Apply all modules in dependency order (vpc + s3 in parallel, then iam)
+# 8. Apply all modules in dependency order
 terragrunt --working-dir terragrunt/live/dev run --all -- apply
 
 # 9. Inspect Terragrunt outputs per module
 terragrunt --working-dir terragrunt/live/dev/vpc output
-terragrunt --working-dir terragrunt/live/dev/s3  output
-terragrunt --working-dir terragrunt/live/dev/iam output
+terragrunt --working-dir terragrunt/live/dev/s3 output
+terragrunt --working-dir terragrunt/live/dev/iam/s3 output
+terragrunt --working-dir terragrunt/live/dev/iam/eks output
+terragrunt --working-dir terragrunt/live/dev/eks output
 ```
 
 ![Terragrunt outputs](.github/terragrunt_ouputs.png)
@@ -203,6 +223,14 @@ terragrunt --working-dir terragrunt/live/dev/iam output
 aws --endpoint-url=http://localhost:4566 s3 ls
 aws --endpoint-url=http://localhost:4566 iam list-roles --query 'Roles[].RoleName'
 aws --endpoint-url=http://localhost:4566 ec2 describe-vpcs --query 'Vpcs[].{ID:VpcId,CIDR:CidrBlock}'
+aws --endpoint-url=http://localhost:4566 eks list-clusters
+aws --endpoint-url=http://localhost:4566 eks describe-nodegroup \
+  --cluster-name blueprint-dev \
+  --nodegroup-name blueprint-dev-nodes
+
+# Inspect Kubernetes without installing kubectl on the host
+docker exec ministack-eks-000000000000-us-east-1-blueprint-dev \
+  kubectl get nodes
 
 # 11. Clean up
 terragrunt --working-dir terragrunt/live/dev run --all -- destroy

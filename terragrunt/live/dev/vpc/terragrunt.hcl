@@ -1,4 +1,3 @@
-# terragrunt/live/dev/vpc/terragrunt.hcl
 # Dev VPC entry point — wires root.hcl and _common/vpc together for the dev environment.
 
 include "root" {

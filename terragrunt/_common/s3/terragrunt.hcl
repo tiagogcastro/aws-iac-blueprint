@@ -1,4 +1,3 @@
-# terragrunt/_common/s3/terragrunt.hcl
 # Shared S3 module configuration — source path and inputs applied to every environment.
 
 terraform {

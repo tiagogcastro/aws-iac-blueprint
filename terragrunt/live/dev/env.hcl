@@ -1,4 +1,3 @@
-# terragrunt/live/dev/env.hcl
 # Dev environment variables — region, account ID, networking CIDRs, tags, and local AWS endpoint.
 
 locals {

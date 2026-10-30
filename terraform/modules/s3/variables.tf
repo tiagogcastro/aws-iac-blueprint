@@ -1,4 +1,3 @@
-# terraform/modules/s3/variables.tf
 # Input variable declarations for the S3 module.
 
 variable "project_name" {

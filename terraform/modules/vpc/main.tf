@@ -1,4 +1,3 @@
-# terraform/modules/vpc/main.tf
 # VPC, internet gateway, public and private subnets, and route tables.
 
 resource "aws_vpc" "this" {

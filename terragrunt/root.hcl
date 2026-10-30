@@ -1,4 +1,3 @@
-# terragrunt/root.hcl
 # Included by every child terragrunt.hcl. Generates versions.tf, provider.tf, and backend.tf per module.
 
 locals {
@@ -58,6 +57,7 @@ generate "provider" {
         s3  = "${local.aws_endpoint}"
         iam = "${local.aws_endpoint}"
         ec2 = "${local.aws_endpoint}"
+        eks = "${local.aws_endpoint}"
         sts = "${local.aws_endpoint}"
       }
       %{~endif}

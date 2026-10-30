@@ -1,4 +1,3 @@
-# terragrunt/live/dev/s3/terragrunt.hcl
 # Dev S3 entry point — wires root.hcl and _common/s3 together for the dev environment.
 
 include "root" {
