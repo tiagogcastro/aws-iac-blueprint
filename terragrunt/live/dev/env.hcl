@@ -36,6 +36,14 @@ locals {
   s3_access_role_suffix         = "s3-raw-role"
   s3_trusted_service_principals = ["ec2.amazonaws.com"]
 
+  # ECR image integrity, scanning, encryption, and retention.
+  ecr_repository_suffix    = "fileflow"
+  ecr_image_tag_mutability = "IMMUTABLE"
+  ecr_scan_on_push         = true
+  ecr_encryption_type      = "AES256"
+  ecr_force_delete         = true
+  ecr_max_image_count      = 10
+
   # EKS control plane access and managed node group capacity.
   eks_kubernetes_version      = "1.31"
   eks_endpoint_public_access  = true
