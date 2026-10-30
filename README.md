@@ -1,7 +1,7 @@
 # AWS IaC Blueprint
 
 > Portfolio / learning template. Infrastructure as Code with Terraform and Terragrunt on AWS.
-> No real AWS account required. Validate and apply everything locally with LocalStack.
+> No real AWS account required. Validate and apply everything locally with MiniStack.
 
 ![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.5.0-7B42BC?logo=terraform)
 ![Terragrunt](https://img.shields.io/badge/Terragrunt-%3E%3D0.50-FA7343)
@@ -16,7 +16,7 @@ A template that demonstrates how to structure a real-world IaC project where **a
 - **Reusable Terraform modules** - no hardcoded values, no provider declarations, no `terraform {}` block; clean, testable units
 - **Terragrunt orchestration** - injects provider, backend, and version constraints per environment via `root.hcl`
 - **Environment isolation** - `_common/` holds module logic; `live/<env>/` holds one `env.hcl` per environment; adding `staging/` or `prod/` is one new file, zero module changes
-- **LocalStack integration** - full `apply` -> inspect -> `destroy` cycle with no AWS account and no costs
+- **MiniStack integration** - full `apply` -> inspect -> `destroy` cycle with no AWS account, token, or costs
 
 ---
 
@@ -45,15 +45,23 @@ Generic object storage bucket. Provisions:
 
 The `layer` input accepts `raw`, `processed`, or `curated` and is validated at plan time.
 
-### IAM - `terraform/modules/iam`
+### IAM - `terraform/modules/iam/{s3,eks}`
 
-Least-privilege access role for S3. Provisions:
+IAM is split into independent service modules:
 
-- **IAM role** - `trusted_services` list defines which AWS services can assume it
-- **IAM policy** - `ListBucket` + `GetObject` / `PutObject` / `DeleteObject` on the target bucket
-- **Role-policy attachment**
+- **`iam/s3`** - service role, least-privilege bucket policy, and attachment
+- **`iam/eks`** - control-plane and node roles, AWS-managed policy attachments, and an ECR pull policy
 
-Policy documents are computed locally by `aws_iam_policy_document` with no AWS API calls during `validate` or `plan`.
+Each module keeps its roles, policies, and attachments in separate files. There is no intermediate IAM composition module.
+
+### EKS - `terraform/modules/eks`
+
+Local Kubernetes cluster backed by k3s. Provisions:
+
+- **EKS cluster** - Kubernetes 1.31 on the private VPC subnets
+- **Managed node group** - `t3.medium`, scaling from 1 to 2 nodes
+
+IAM resources are provided by the IAM module rather than created inside EKS.
 
 ---
 
@@ -65,7 +73,10 @@ Policy documents are computed locally by `aws_iam_policy_document` with no AWS A
 │   └── modules/
 │       ├── vpc/          # VPC, subnets, route tables, IGW
 │       ├── s3/           # S3 bucket (versioning, encryption, public-access block)
-│       └── iam/          # IAM role + least-privilege S3 policy
+│       ├── iam/
+│       │   ├── s3/       # S3 role, policy, and attachment
+│       │   └── eks/      # EKS roles, policies, and attachments
+│       └── eks/          # EKS cluster and managed node group
 │
 ├── terragrunt/
 │   ├── global.hcl             # project_name, owner
@@ -73,16 +84,22 @@ Policy documents are computed locally by `aws_iam_policy_document` with no AWS A
 │   ├── _common/               # module inputs shared across all environments
 │   │   ├── vpc/terragrunt.hcl
 │   │   ├── s3/terragrunt.hcl
-│   │   └── iam/terragrunt.hcl
+│   │   ├── iam/
+│   │   │   ├── s3/terragrunt.hcl
+│   │   │   └── eks/terragrunt.hcl
+│   │   └── eks/terragrunt.hcl
 │   └── live/
 │       └── dev/
-│           ├── env.hcl              # region, account ID, CIDRs, LocalStack endpoint
-│           ├── vpc/terragrunt.hcl   # 3 lines: include root + include _common/vpc
+│           ├── env.hcl              # provider, network, storage, IAM, and EKS values
+│           ├── vpc/terragrunt.hcl
 │           ├── s3/terragrunt.hcl
-│           └── iam/terragrunt.hcl
+│           ├── iam/
+│           │   ├── s3/terragrunt.hcl
+│           │   └── eks/terragrunt.hcl
+│           └── eks/terragrunt.hcl
 │
-├── localstack/
-│   └── docker-compose.yml     # LocalStack Pro container
+├── ministack/
+│   └── docker-compose.yml     # local AWS emulator
 │
 ├── .env.example               # template - copy to .env and fill in values
 └── .gitignore
@@ -96,20 +113,25 @@ Policy documents are computed locally by `aws_iam_policy_document` with no AWS A
 |------|-------|----------|
 | `global.hcl` | All environments | `project_name`, `owner` |
 | `root.hcl` | Every module | Provider, backend, version constraints |
-| `_common/<mod>/terragrunt.hcl` | Every environment | Module source, inputs, dependencies |
-| `live/<env>/env.hcl` | One environment | Region, account ID, CIDRs, skip-flags, `extra_tags` |
-| `live/<env>/<mod>/terragrunt.hcl` | One env x module | 3 lines: include root + include _common |
+| `_common/<unit>/terragrunt.hcl` | Every environment | Module source, inputs, dependencies |
+| `live/<env>/env.hcl` | One environment | Provider, network, storage, IAM, EKS capacity, and tags |
+| `live/<env>/<unit>/terragrunt.hcl` | One environment x unit | Includes `root.hcl` and the corresponding `_common` configuration |
 
-**Adding a new environment** = create `live/staging/` with one `env.hcl` and three 3-line module files. Zero changes to modules or `root.hcl`.
+**Adding a new environment** = create `live/staging/` with one `env.hcl` and one entry file per module. Zero changes to Terraform modules or `root.hcl`.
+
+Environment-specific capacity and behavior stay in `env.hcl`. For example, `dev` can use one `t3.medium` EKS node while `prod` uses larger instances and a higher scaling range. `_common` only maps these values to reusable Terraform modules and declares dependencies.
+
+The modules keep shared structural and security rules, such as S3 encryption and public-access blocking. S3 buckets do not have a configured maximum size; environment values instead control behavior such as versioning, data classification, and future lifecycle or retention rules.
 
 ### Dependency order
 
 Terragrunt reads `dependency` blocks and builds the execution graph automatically:
 
-- `vpc` and `s3` have no dependency between them, they run in parallel
-- `iam` depends on `s3` (needs the bucket ARN), it runs after `s3` is applied
+- `vpc`, `s3`, and `iam/eks` have no upstream dependencies and can run in parallel
+- `iam/s3` depends on `s3` because its policy needs the bucket ARN
+- `eks` depends on `vpc` for private subnet IDs and on `iam/eks` for role ARNs
 
-The `iam` module carries `mock_outputs` for the S3 dependency so `validate` and `plan` work before `s3` is applied.
+Dependency blocks carry mock outputs so `validate` and `plan` work before their dependencies are applied.
 
 ---
 
@@ -136,7 +158,7 @@ Base tags (`Project`, `Environment`, `Owner`, `ManagedBy`) are applied via `prov
 | Terraform | 1.5.0 | `brew install terraform` |
 | Terragrunt | 0.50.0 | `brew install terragrunt` |
 | Git | any | required for `get_repo_root()` |
-| Docker | any | optional - LocalStack only |
+| Docker | any | required for local MiniStack and its k3s cluster |
 
 > `get_repo_root()` requires a git repository. Run `git init` once before using Terragrunt commands.
 
@@ -161,40 +183,41 @@ terragrunt --working-dir terragrunt/live/dev run --all -- plan
 
 ---
 
-## LocalStack - full apply without a real AWS account
+## MiniStack - full apply without a real AWS account
 
-LocalStack emulates the AWS API locally. All Terraform calls go to `localhost:4566` instead of real AWS. The `LOCALSTACK_ENDPOINT` variable is the only switch. When set, `root.hcl` injects `s3_use_path_style = true` and an `endpoints {}` block into the generated provider automatically.
+MiniStack emulates AWS APIs locally. Terraform calls go to `localhost:4566` instead of real AWS. The `AWS_ENDPOINT_URL` variable is the only switch. When set, `root.hcl` injects `s3_use_path_style = true` and an `endpoints {}` block into the generated provider automatically.
 
 ```bash
 # 1. Copy and configure environment variables
 cp .env.example .env
-# Edit .env - add your LocalStack auth token from https://app.localstack.cloud/workspace/auth-tokens
 
 # 2. Source environment variables
 source .env
 
-# 3. Pull the latest LocalStack image
-docker compose -f localstack/docker-compose.yml pull
+# 3. Pull the pinned MiniStack image
+docker compose -f ministack/docker-compose.yml pull
 
-# 4. Start LocalStack
-docker compose -f localstack/docker-compose.yml up -d
+# 4. Start MiniStack
+docker compose -f ministack/docker-compose.yml up -d
 
 # 5. Confirm it is healthy
-docker compose -f localstack/docker-compose.yml ps
+docker compose -f ministack/docker-compose.yml ps
 
-# 6. Follow the logs until "Ready." appears, then Ctrl+C
-docker compose -f localstack/docker-compose.yml logs -f
+# 6. Inspect the local emulator health
+curl --fail http://localhost:4566/_ministack/health
 
 # 7. Plan all modules (review before applying)
 terragrunt --working-dir terragrunt/live/dev run --all -- plan
 
-# 8. Apply all modules in dependency order (vpc + s3 in parallel, then iam)
+# 8. Apply all modules in dependency order
 terragrunt --working-dir terragrunt/live/dev run --all -- apply
 
 # 9. Inspect Terragrunt outputs per module
 terragrunt --working-dir terragrunt/live/dev/vpc output
-terragrunt --working-dir terragrunt/live/dev/s3  output
-terragrunt --working-dir terragrunt/live/dev/iam output
+terragrunt --working-dir terragrunt/live/dev/s3 output
+terragrunt --working-dir terragrunt/live/dev/iam/s3 output
+terragrunt --working-dir terragrunt/live/dev/iam/eks output
+terragrunt --working-dir terragrunt/live/dev/eks output
 ```
 
 ![Terragrunt outputs](.github/terragrunt_ouputs.png)
@@ -204,18 +227,22 @@ terragrunt --working-dir terragrunt/live/dev/iam output
 aws --endpoint-url=http://localhost:4566 s3 ls
 aws --endpoint-url=http://localhost:4566 iam list-roles --query 'Roles[].RoleName'
 aws --endpoint-url=http://localhost:4566 ec2 describe-vpcs --query 'Vpcs[].{ID:VpcId,CIDR:CidrBlock}'
+aws --endpoint-url=http://localhost:4566 eks list-clusters
+aws --endpoint-url=http://localhost:4566 eks describe-nodegroup \
+  --cluster-name blueprint-dev \
+  --nodegroup-name blueprint-dev-nodes
+
+# Inspect Kubernetes without installing kubectl on the host
+docker exec ministack-eks-000000000000-us-east-1-blueprint-dev \
+  kubectl get nodes
 
 # 11. Clean up
 terragrunt --working-dir terragrunt/live/dev run --all -- destroy
 ```
 
-To target a real AWS account: unset `LOCALSTACK_ENDPOINT` and configure `~/.aws/credentials` normally.
+To target a real AWS account: unset `AWS_ENDPOINT_URL` and configure `~/.aws/credentials` normally.
 
-### LocalStack dashboard
-
-Access the dashboard at [app.localstack.cloud](https://app.localstack.cloud) and add a new instance with endpoint `http://localhost.localstack.cloud:4566` to inspect resources visually.
-
-![LocalStack dashboard](.github/localstack.png)
+> MiniStack needs access to `/var/run/docker.sock` to create the local k3s cluster used by EKS in a later step. This grants the container control over the local Docker daemon and must only be used in a trusted development environment.
 
 ---
 
@@ -223,11 +250,30 @@ Access the dashboard at [app.localstack.cloud](https://app.localstack.cloud) and
 
 | Variable | Local value | Purpose |
 |----------|-------------|---------|
-| `AWS_ACCESS_KEY_ID` | `test` | LocalStack accepts any non-empty value |
+| `AWS_ACCESS_KEY_ID` | `test` | Local dummy credential |
 | `AWS_SECRET_ACCESS_KEY` | `test` | Same |
 | `AWS_DEFAULT_REGION` | `us-east-1` | Must match `env.hcl` |
-| `LOCALSTACK_AUTH_TOKEN` | your token | Required for Pro features and cloud dashboard |
-| `LOCALSTACK_ENDPOINT` | `http://localhost:4566` | Redirects all AWS API calls to LocalStack |
+| `AWS_ENDPOINT_URL` | `http://localhost:4566` | Redirects AWS API calls to MiniStack |
+
+---
+
+## Development workflow
+
+- `develop` receives the work for each small infrastructure or application phase.
+- A pull request documents and validates the changes before they reach `main`.
+- `main` represents the latest reviewed and reproducible project state.
+- Evidence in `.github/` is updated after a phase can be reproduced locally.
+
+## Roadmap
+
+- [x] Run AWS infrastructure locally with MiniStack
+- [x] Provision VPC, S3, service-specific IAM, and local EKS/k3s
+- [x] Keep environment-specific capacity and behavior in `live/<env>/env.hcl`
+- [ ] Provision an ECR repository for application images
+- [ ] Create the FileFlow backend and frontend with TypeScript, Node.js, and React
+- [ ] Build and publish container images
+- [ ] Deploy FileFlow to Kubernetes
+- [ ] Add CI/CD, observability, security checks, and visual evidence
 
 ---
 

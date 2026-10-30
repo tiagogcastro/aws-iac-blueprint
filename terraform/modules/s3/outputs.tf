@@ -1,4 +1,3 @@
-# terraform/modules/s3/outputs.tf
 # Exported values from the S3 module consumed by dependent modules (e.g., IAM).
 
 output "aws_s3_bucket_id" {

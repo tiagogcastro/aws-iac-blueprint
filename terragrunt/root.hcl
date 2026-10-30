@@ -1,4 +1,3 @@
-# terragrunt/root.hcl
 # Included by every child terragrunt.hcl. Generates versions.tf, provider.tf, and backend.tf per module.
 
 locals {
@@ -14,7 +13,7 @@ locals {
   skip_metadata_api_check     = local.env_vars.locals.skip_metadata_api_check
   skip_requesting_account_id  = local.env_vars.locals.skip_requesting_account_id
 
-  localstack_endpoint = local.env_vars.locals.localstack_endpoint
+  aws_endpoint = local.env_vars.locals.aws_endpoint
 }
 
 # Generates versions.tf — the single source of truth for provider version constraints.
@@ -38,8 +37,8 @@ generate "versions" {
 }
 
 # Generates provider.tf — AWS provider config injected into every module's cache directory.
-# When LOCALSTACK_ENDPOINT is set, an endpoints{} block is injected automatically so
-# every AWS API call is redirected to LocalStack — no code change needed.
+# When AWS_ENDPOINT_URL is set, an endpoints{} block is injected automatically so
+# AWS API calls are redirected to the configured emulator — no module change needed.
 generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite_terragrunt"
@@ -50,17 +49,18 @@ generate "provider" {
       skip_credentials_validation = ${local.skip_credentials_validation}
       skip_metadata_api_check     = ${local.skip_metadata_api_check}
       skip_requesting_account_id  = ${local.skip_requesting_account_id}
-      %{~ if local.localstack_endpoint != "" }
+      %{~if local.aws_endpoint != ""}
 
       s3_use_path_style = true
 
       endpoints {
-        s3  = "${local.localstack_endpoint}"
-        iam = "${local.localstack_endpoint}"
-        ec2 = "${local.localstack_endpoint}"
-        sts = "${local.localstack_endpoint}"
+        s3  = "${local.aws_endpoint}"
+        iam = "${local.aws_endpoint}"
+        ec2 = "${local.aws_endpoint}"
+        eks = "${local.aws_endpoint}"
+        sts = "${local.aws_endpoint}"
       }
-      %{~ endif }
+      %{~endif}
 
       default_tags {
         tags = {

@@ -1,4 +1,3 @@
-# terraform/modules/vpc/main.tf
 # VPC, internet gateway, public and private subnets, and route tables.
 
 resource "aws_vpc" "this" {
@@ -6,42 +5,42 @@ resource "aws_vpc" "this" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-vpc"
+  tags = merge(var.resource_tags, {
+    Name = "${var.project_name}-${var.deployment_environment}-vpc"
   })
 }
 
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-igw"
+  tags = merge(var.resource_tags, {
+    Name = "${var.project_name}-${var.deployment_environment}-igw"
   })
 }
 
 resource "aws_subnet" "public" {
-  count = length(var.public_subnet_cidrs)
+  count = length(var.vpc_public_subnet_cidrs)
 
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = var.public_subnet_cidrs[count.index]
-  availability_zone       = var.availability_zones[count.index]
+  cidr_block              = var.vpc_public_subnet_cidrs[count.index]
+  availability_zone       = var.vpc_availability_zones[count.index]
   map_public_ip_on_launch = true
 
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-public-subnet-${count.index + 1}"
+  tags = merge(var.resource_tags, {
+    Name = "${var.project_name}-${var.deployment_environment}-public-subnet-${count.index + 1}"
     Tier = "public"
   })
 }
 
 resource "aws_subnet" "private" {
-  count = length(var.private_subnet_cidrs)
+  count = length(var.vpc_private_subnet_cidrs)
 
   vpc_id            = aws_vpc.this.id
-  cidr_block        = var.private_subnet_cidrs[count.index]
-  availability_zone = var.availability_zones[count.index]
+  cidr_block        = var.vpc_private_subnet_cidrs[count.index]
+  availability_zone = var.vpc_availability_zones[count.index]
 
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-private-subnet-${count.index + 1}"
+  tags = merge(var.resource_tags, {
+    Name = "${var.project_name}-${var.deployment_environment}-private-subnet-${count.index + 1}"
     Tier = "private"
   })
 }
@@ -54,8 +53,8 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.this.id
   }
 
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-public-rt"
+  tags = merge(var.resource_tags, {
+    Name = "${var.project_name}-${var.deployment_environment}-public-rt"
   })
 }
 
@@ -69,8 +68,8 @@ resource "aws_route_table_association" "public" {
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.this.id
 
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-private-rt"
+  tags = merge(var.resource_tags, {
+    Name = "${var.project_name}-${var.deployment_environment}-private-rt"
   })
 }
 
