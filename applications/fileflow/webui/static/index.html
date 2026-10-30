@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="FileFlow — a small cloud-native file workspace"
+    />
+    <title>FileFlow</title>
+    <link rel="stylesheet" href="/styles/base.css" />
+    <link rel="stylesheet" href="/styles/layout.css" />
+    <link rel="stylesheet" href="/styles/components.css" />
+  </head>
+  <body>
+    <div class="glow glow-one"></div>
+    <div class="glow glow-two"></div>
+    <header class="shell header">
+      <a class="brand" href="/" aria-label="FileFlow home">
+        <span class="brand-mark">F</span>
+        <span>FileFlow</span>
+      </a>
+      <span class="status"><i></i> API online</span>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">Cloud-native file workspace</span>
+          <h1>Move files.<br /><em>Keep the flow.</em></h1>
+          <p>
+            A compact Go application built to demonstrate the path from local
+            development to EKS and S3.
+          </p>
+        </div>
+        <div class="metric">
+          <span id="file-count">0</span>
+          <small>files available</small>
+        </div>
+      </section>
+
+      <section class="upload-card" id="drop-zone">
+        <input id="file-input" type="file" hidden />
+        <div class="upload-icon">↑</div>
+        <div>
+          <h2>Drop a file here</h2>
+          <p>
+            or
+            <button id="browse-button" type="button">browse your device</button>
+            · maximum 20 MB
+          </p>
+        </div>
+        <div class="progress" id="progress" hidden><span></span></div>
+      </section>
+
+      <section class="files-section">
+        <div class="section-title">
+          <div>
+            <span class="eyebrow">Your workspace</span>
+            <h2>Recent files</h2>
+          </div>
+          <button
+            class="refresh"
+            id="refresh-button"
+            type="button"
+            aria-label="Refresh files"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+        <div class="file-list" id="file-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script type="module" src="/scripts/app.js"></script>
+  </body>
+</html>
