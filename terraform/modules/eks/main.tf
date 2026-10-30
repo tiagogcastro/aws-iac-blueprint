@@ -7,12 +7,12 @@ locals {
 resource "aws_eks_cluster" "project_cluster" {
   name     = local.eks_cluster_name
   role_arn = var.eks_cluster_role_arn
-  version  = var.kubernetes_version
+  version  = var.eks_kubernetes_version
 
   vpc_config {
     subnet_ids              = var.eks_subnet_ids
-    endpoint_public_access  = true
-    endpoint_private_access = true
+    endpoint_public_access  = var.eks_endpoint_public_access
+    endpoint_private_access = var.eks_endpoint_private_access
   }
 
   tags = merge(var.resource_tags, {
@@ -26,7 +26,7 @@ resource "aws_eks_node_group" "managed_nodes" {
   node_role_arn   = var.eks_node_role_arn
   subnet_ids      = var.eks_subnet_ids
   instance_types  = var.eks_node_instance_types
-  capacity_type   = "ON_DEMAND"
+  capacity_type   = var.eks_node_capacity_type
 
   scaling_config {
     desired_size = var.eks_node_desired_size

@@ -1,11 +1,11 @@
 # S3 bucket with versioning, AES256 server-side encryption, and public access block.
 
 resource "aws_s3_bucket" "this" {
-  bucket = "${var.project_name}-${var.environment}-${var.bucket_suffix}"
+  bucket = "${var.project_name}-${var.deployment_environment}-${var.s3_bucket_suffix}"
 
-  tags = merge(var.tags, {
-    Name  = "${var.project_name}-${var.environment}-${var.bucket_suffix}"
-    Layer = var.layer
+  tags = merge(var.resource_tags, {
+    Name  = "${var.project_name}-${var.deployment_environment}-${var.s3_bucket_suffix}"
+    Layer = var.s3_data_layer
   })
 }
 
@@ -13,7 +13,7 @@ resource "aws_s3_bucket_versioning" "this" {
   bucket = aws_s3_bucket.this.id
 
   versioning_configuration {
-    status = var.versioning_enabled ? "Enabled" : "Disabled"
+    status = var.s3_versioning_enabled ? "Enabled" : "Disabled"
   }
 }
 

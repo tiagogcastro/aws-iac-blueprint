@@ -5,8 +5,8 @@ variable "project_name" {
   type        = string
 }
 
-variable "environment" {
-  description = "Deployment environment (e.g., dev, staging, prod)"
+variable "deployment_environment" {
+  description = "Deployment environment used in the VPC resource names"
   type        = string
 }
 
@@ -15,22 +15,22 @@ variable "vpc_cidr" {
   type        = string
 }
 
-variable "public_subnet_cidrs" {
+variable "vpc_public_subnet_cidrs" {
   description = "CIDR blocks for public subnets, one per availability zone"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs" {
+variable "vpc_private_subnet_cidrs" {
   description = "CIDR blocks for private subnets, one per availability zone"
   type        = list(string)
 }
 
-variable "availability_zones" {
+variable "vpc_availability_zones" {
   description = "Availability zones for subnet placement; must match the length of both subnet CIDR lists"
   type        = list(string)
 }
 
-variable "tags" {
+variable "resource_tags" {
   description = "Additional tags merged onto all resources (base tags come from the provider default_tags)"
   type        = map(string)
   default     = {}

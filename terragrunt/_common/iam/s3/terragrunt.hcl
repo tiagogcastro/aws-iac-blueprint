@@ -17,15 +17,15 @@ dependency "s3_bucket" {
 
   mock_outputs_allowed_terraform_commands = ["init", "validate", "hclvalidate", "plan"]
   mock_outputs = {
-    aws_s3_bucket_arn = "arn:aws:s3:::blueprint-${local.environment.environment}-raw"
+    aws_s3_bucket_arn = "arn:aws:s3:::${local.global.project_name}-${local.environment.environment}-${local.environment.s3_bucket_suffix}"
   }
 }
 
 inputs = {
   project_name                  = local.global.project_name
   deployment_environment        = local.environment.environment
-  s3_access_role_suffix         = "s3-raw-role"
-  s3_trusted_service_principals = ["ec2.amazonaws.com"]
+  s3_access_role_suffix         = local.environment.s3_access_role_suffix
+  s3_trusted_service_principals = local.environment.s3_trusted_service_principals
   s3_bucket_arn                 = dependency.s3_bucket.outputs.aws_s3_bucket_arn
   resource_tags                 = local.environment.extra_tags
 }

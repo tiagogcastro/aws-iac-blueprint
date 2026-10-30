@@ -1,4 +1,4 @@
-# Dev environment variables — region, account ID, networking CIDRs, tags, and local AWS endpoint.
+# Dev environment values for the provider and provisioned services.
 
 locals {
   environment    = "dev"
@@ -21,9 +21,28 @@ locals {
   # prod/env.hcl should not declare this variable.
   aws_endpoint = get_env("AWS_ENDPOINT_URL", "")
 
-  # Networking — adjust per environment to avoid CIDR conflicts between dev / staging / prod.
-  vpc_cidr             = "10.0.0.0/16"
-  public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
-  private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
-  availability_zones   = ["us-east-1a", "us-east-1b"]
+  # VPC capacity and addressing.
+  vpc_cidr                 = "10.0.0.0/16"
+  vpc_public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+  vpc_private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+  vpc_availability_zones   = ["us-east-1a", "us-east-1b"]
+
+  # S3 data classification and recovery behavior.
+  s3_bucket_suffix      = "raw"
+  s3_data_layer         = "raw"
+  s3_versioning_enabled = true
+
+  # IAM access to the S3 bucket.
+  s3_access_role_suffix         = "s3-raw-role"
+  s3_trusted_service_principals = ["ec2.amazonaws.com"]
+
+  # EKS control plane access and managed node group capacity.
+  eks_kubernetes_version      = "1.31"
+  eks_endpoint_public_access  = true
+  eks_endpoint_private_access = true
+  eks_node_capacity_type      = "ON_DEMAND"
+  eks_node_instance_types     = ["t3.medium"]
+  eks_node_desired_size       = 1
+  eks_node_min_size           = 1
+  eks_node_max_size           = 2
 }

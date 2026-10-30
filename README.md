@@ -90,7 +90,7 @@ IAM resources are provided by the IAM module rather than created inside EKS.
 │   │   └── eks/terragrunt.hcl
 │   └── live/
 │       └── dev/
-│           ├── env.hcl              # region, account ID, CIDRs, local AWS endpoint
+│           ├── env.hcl              # provider, network, storage, IAM, and EKS values
 │           ├── vpc/terragrunt.hcl
 │           ├── s3/terragrunt.hcl
 │           ├── iam/
@@ -114,10 +114,14 @@ IAM resources are provided by the IAM module rather than created inside EKS.
 | `global.hcl` | All environments | `project_name`, `owner` |
 | `root.hcl` | Every module | Provider, backend, version constraints |
 | `_common/<unit>/terragrunt.hcl` | Every environment | Module source, inputs, dependencies |
-| `live/<env>/env.hcl` | One environment | Region, account ID, CIDRs, skip-flags, `extra_tags` |
+| `live/<env>/env.hcl` | One environment | Provider, network, storage, IAM, EKS capacity, and tags |
 | `live/<env>/<unit>/terragrunt.hcl` | One environment x unit | Includes `root.hcl` and the corresponding `_common` configuration |
 
 **Adding a new environment** = create `live/staging/` with one `env.hcl` and one entry file per module. Zero changes to Terraform modules or `root.hcl`.
+
+Environment-specific capacity and behavior stay in `env.hcl`. For example, `dev` can use one `t3.medium` EKS node while `prod` uses larger instances and a higher scaling range. `_common` only maps these values to reusable Terraform modules and declares dependencies.
+
+The modules keep shared structural and security rules, such as S3 encryption and public-access blocking. S3 buckets do not have a configured maximum size; environment values instead control behavior such as versioning, data classification, and future lifecycle or retention rules.
 
 ### Dependency order
 
@@ -250,6 +254,26 @@ To target a real AWS account: unset `AWS_ENDPOINT_URL` and configure `~/.aws/cre
 | `AWS_SECRET_ACCESS_KEY` | `test` | Same |
 | `AWS_DEFAULT_REGION` | `us-east-1` | Must match `env.hcl` |
 | `AWS_ENDPOINT_URL` | `http://localhost:4566` | Redirects AWS API calls to MiniStack |
+
+---
+
+## Development workflow
+
+- `develop` receives the work for each small infrastructure or application phase.
+- A pull request documents and validates the changes before they reach `main`.
+- `main` represents the latest reviewed and reproducible project state.
+- Evidence in `.github/` is updated after a phase can be reproduced locally.
+
+## Roadmap
+
+- [x] Run AWS infrastructure locally with MiniStack
+- [x] Provision VPC, S3, service-specific IAM, and local EKS/k3s
+- [x] Keep environment-specific capacity and behavior in `live/<env>/env.hcl`
+- [ ] Provision an ECR repository for application images
+- [ ] Create the FileFlow backend and frontend with TypeScript, Node.js, and React
+- [ ] Build and publish container images
+- [ ] Deploy FileFlow to Kubernetes
+- [ ] Add CI/CD, observability, security checks, and visual evidence
 
 ---
 

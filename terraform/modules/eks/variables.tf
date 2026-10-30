@@ -10,10 +10,9 @@ variable "deployment_environment" {
   type        = string
 }
 
-variable "kubernetes_version" {
+variable "eks_kubernetes_version" {
   description = "Kubernetes version used by the EKS control plane"
   type        = string
-  default     = "1.31"
 }
 
 variable "eks_cluster_role_arn" {
@@ -36,28 +35,44 @@ variable "eks_subnet_ids" {
   }
 }
 
+variable "eks_endpoint_public_access" {
+  description = "Whether the EKS control plane endpoint is reachable outside the VPC"
+  type        = bool
+}
+
+variable "eks_endpoint_private_access" {
+  description = "Whether the EKS control plane endpoint is reachable from within the VPC"
+  type        = bool
+}
+
+variable "eks_node_capacity_type" {
+  description = "Capacity purchasing model used by the EKS managed node group"
+  type        = string
+
+  validation {
+    condition     = contains(["ON_DEMAND", "SPOT"], var.eks_node_capacity_type)
+    error_message = "eks_node_capacity_type must be ON_DEMAND or SPOT."
+  }
+}
+
 variable "eks_node_instance_types" {
   description = "EC2 instance types used by the EKS managed node group"
   type        = list(string)
-  default     = ["t3.medium"]
 }
 
 variable "eks_node_desired_size" {
   description = "Desired number of nodes in the EKS managed node group"
   type        = number
-  default     = 1
 }
 
 variable "eks_node_min_size" {
   description = "Minimum number of nodes in the EKS managed node group"
   type        = number
-  default     = 1
 }
 
 variable "eks_node_max_size" {
   description = "Maximum number of nodes in the EKS managed node group"
   type        = number
-  default     = 2
 }
 
 variable "resource_tags" {
