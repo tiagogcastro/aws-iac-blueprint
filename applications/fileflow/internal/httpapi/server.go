@@ -9,19 +9,21 @@ import (
 )
 
 type server struct {
-	store          files.Store
+	service        *files.Service
 	maxUploadBytes int64
 	logger         *slog.Logger
 }
 
-func New(store files.Store, maxUploadBytes int64, logger *slog.Logger) http.Handler {
-	s := &server{store: store, maxUploadBytes: maxUploadBytes, logger: logger}
+func New(service *files.Service, maxUploadBytes int64, logger *slog.Logger) http.Handler {
+	s := &server{service: service, maxUploadBytes: maxUploadBytes, logger: logger}
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /healthz", s.health)
 	router.HandleFunc("GET /api/files", s.list)
 	router.HandleFunc("POST /api/files", s.upload)
-	router.HandleFunc("GET /api/files/{id}", s.download)
+	router.HandleFunc("GET /api/files/{id}", s.get)
+	router.HandleFunc("GET /api/files/{id}/content", s.download)
+	router.HandleFunc("GET /api/files/{id}/events", s.events)
 	router.HandleFunc("DELETE /api/files/{id}", s.delete)
 	router.Handle("GET /", webui.Handler())
 

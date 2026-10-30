@@ -15,6 +15,11 @@ output "aws_eks_cluster_endpoint" {
   value       = aws_eks_cluster.project_cluster.endpoint
 }
 
+output "aws_eks_cluster_oidc_issuer" {
+  description = "OIDC issuer used by Kubernetes workload identity"
+  value       = try(aws_eks_cluster.project_cluster.identity[0].oidc[0].issuer, "")
+}
+
 output "aws_eks_cluster_version" {
   description = "Kubernetes version"
   value       = aws_eks_cluster.project_cluster.version

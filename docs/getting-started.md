@@ -1,6 +1,6 @@
 # Getting started
 
-This guide covers the complete local cycle: start MiniStack, validate the six Terragrunt units, apply them, inspect AWS and Kubernetes, and clean up.
+This guide covers the complete local cycle: start MiniStack, validate the nine Terragrunt units, apply them, deploy FileFlow, inspect AWS and Kubernetes, and clean up.
 
 ## Prerequisites
 
@@ -52,10 +52,10 @@ terragrunt --non-interactive \
   run --all -- validate
 ```
 
-Terragrunt should discover six units:
+Terragrunt should discover nine units:
 
 ```text
-vpc  s3  iam/s3  iam/eks  ecr  eks
+vpc  s3  dynamodb  sqs  iam/s3  iam/eks  iam/fileflow  ecr  eks
 ```
 
 ## Plan and apply
@@ -76,6 +76,9 @@ terragrunt --working-dir terragrunt/live/dev/iam/s3 output
 terragrunt --working-dir terragrunt/live/dev/iam/eks output
 terragrunt --working-dir terragrunt/live/dev/ecr output
 terragrunt --working-dir terragrunt/live/dev/eks output
+terragrunt --working-dir terragrunt/live/dev/dynamodb output
+terragrunt --working-dir terragrunt/live/dev/sqs output
+terragrunt --working-dir terragrunt/live/dev/iam/fileflow output
 ```
 
 ## Inspect AWS APIs
@@ -94,6 +97,8 @@ aws s3api get-bucket-versioning --bucket blueprint-dev-raw
 ```bash
 aws iam list-roles --query 'Roles[?contains(RoleName, `blueprint-dev`)].RoleName'
 aws iam list-attached-role-policies --role-name blueprint-dev-eks-node-role
+aws iam get-role --role-name blueprint-dev-fileflow-api-role
+aws iam get-role --role-name blueprint-dev-fileflow-worker-role
 ```
 
 ### ECR
@@ -107,6 +112,12 @@ aws ecr describe-repositories \
 ```bash
 aws ecr get-lifecycle-policy \
   --repository-name blueprint-dev-fileflow
+```
+
+Build and publish an immutable local image:
+
+```bash
+applications/fileflow/scripts/publish-local.sh
 ```
 
 ### EKS
@@ -142,6 +153,17 @@ docker exec ministack-eks-000000000000-us-east-1-blueprint-dev kubectl get names
 ```
 
 In MiniStack, Kubernetes runs in a k3s Docker container. In AWS, the configured managed node group would run worker nodes as EC2 instances.
+
+Deploy and inspect FileFlow:
+
+```bash
+applications/fileflow/scripts/deploy-local.sh
+
+docker exec ministack-eks-000000000000-us-east-1-blueprint-dev \
+  kubectl get pods,deploy,svc,sa -n fileflow -o wide
+```
+
+Use the NodePort URL printed by the script to open the interface or call `/healthz` and `/api/files`.
 
 ## Confirm idempotency
 

@@ -36,10 +36,15 @@ iam/eks ────────────┘
 
 s3 ───────────────────→ iam/s3
 
-ecr       independent
+s3 ──────────────┐
+dynamodb ────────┼──→ iam/fileflow
+sqs ─────────────┤
+eks (OIDC) ──────┘
+
+ecr       image publishing target
 ```
 
-`vpc`, `s3`, `ecr`, and `iam/eks` have no upstream dependency and can run in parallel. ECR remains independent until application publishing and deployment workflows consume its repository URL.
+`vpc`, `s3`, `dynamodb`, `sqs`, `ecr`, and `iam/eks` can start independently. `iam/fileflow` waits for the workload resources and the EKS OIDC issuer before creating API and worker identities.
 
 ## Terraform units
 
@@ -61,7 +66,7 @@ S3 does not have a configured disk size. Capacity grows with stored objects; lif
 
 ### IAM
 
-`iam/s3` owns the role and least-privilege policy for bucket and object operations. `iam/eks` owns the control-plane role, node role, AWS-managed attachments, and ECR pull policy required by workers.
+`iam/s3` owns the general bucket role. `iam/eks` owns the control-plane role, node role, AWS-managed attachments, and ECR pull policy. `iam/fileflow` creates separate workload roles: the API can manage objects, metadata, history, and publish jobs; the worker can read objects, update processing state, and consume jobs.
 
 There is no intermediate IAM composition module.
 
@@ -75,6 +80,13 @@ There is no intermediate IAM composition module.
 - `force_delete` enabled only through the environment value for disposable local development.
 
 The repository was provisioned before the FileFlow application so build and deployment steps have a stable image destination.
+
+### DynamoDB and SQS
+
+- The files table stores metadata, status, category, checksum, and owner-based ordering.
+- The events table stores immutable processing history per file.
+- The processing queue retries failed work three times before redriving to the DLQ.
+- The worker deletes an SQS message only after processing succeeds.
 
 ### EKS
 
@@ -90,21 +102,23 @@ In AWS, a managed node group creates and maintains EC2 worker instances through 
 The initial application is intentionally small enough to explain end to end:
 
 ```text
-Browser
-   ↓ HTTP
-FileFlow Go application on EKS
-   ├── visual web interface embedded in the Go binary
-   ├── file API
-   └── AWS SDK access to S3 through workload identity
+Browser → NodePort → Go API (2 replicas)
+                         ├── S3 file bytes
+                         ├── DynamoDB metadata + history
+                         └── SQS processing job
+                                  ↓
+                           Go worker (independent deployment)
+                                  ├── reads S3 object
+                                  └── writes SHA-256 + status + events
 
-CI build → ECR image → Kubernetes deployment
+Docker build → immutable ECR image
 ```
 
-The implemented application in `applications/fileflow` uses only the Go standard library. One binary embeds the responsive interface and exposes health, upload, list, download, and delete endpoints. The storage interface currently has a filesystem adapter, keeping local execution immediate while establishing the boundary for the future S3 adapter.
+The application uses the AWS SDK for Go v2 behind small domain interfaces. `files.Service` coordinates the use cases without importing AWS packages; S3, DynamoDB, and SQS adapters implement its ports. One binary embeds the temporary interface and starts as either `fileflow api` or `fileflow worker`.
 
 One binary and one image match the current `blueprint-dev-fileflow` repository. This avoids creating frontend and backend repositories before the application needs separate release cycles. The frontend can become an independent application and image later without changing the infrastructure layering principles.
 
-The local non-root container is implemented and tested. No ECR image, FileFlow Kubernetes workload, ingress, CI pipeline, or workload identity is provisioned yet. Those cloud-facing elements remain explicitly marked as planned in the target diagram.
+The non-root image, local ECR publication, Kubernetes deployments, probes, resources, NodePort, and separate Service Account role annotations are implemented and tested. Local pods use fake credentials because MiniStack ignores IAM credentials; AWS should use IRSA without those local credential variables. Ingress, authentication, autoscaling, CI/CD, and the React interface remain future work.
 
 ## Environment values
 

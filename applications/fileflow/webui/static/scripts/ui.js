@@ -28,9 +28,9 @@ function fileRow(file, onDelete) {
     <span class="file-icon"></span>
     <div class="file-info">
       <strong></strong>
-      <small>${formatBytes(file.size)} · ${new Date(file.uploadedAt).toLocaleString()}</small>
+      <small>${file.status} · ${formatBytes(file.size)} · ${new Date(file.createdAt).toLocaleString()}</small>
     </div>
-    <a class="download" href="/api/files/${file.id}">Download</a>
+    <a class="download" href="/api/files/${file.id}/content?download=true">Download</a>
     <button class="delete" type="button" aria-label="Delete file">×</button>`;
   row.querySelector(".file-icon").textContent = extension(file.name);
   row.querySelector("strong").textContent = file.name;

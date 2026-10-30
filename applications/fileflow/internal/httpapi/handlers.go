@@ -15,7 +15,7 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) list(w http.ResponseWriter, r *http.Request) {
-	result, err := s.store.List(r.Context())
+	result, err := s.service.List(r.Context())
 	if err != nil {
 		s.internalError(w, "list files", err)
 		return
@@ -31,39 +31,66 @@ func (s *server) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer part.Close()
-
-	result, err := s.store.Save(r.Context(), header.Filename, io.LimitReader(part, s.maxUploadBytes+1))
-	if err != nil {
-		s.internalError(w, "save file", err)
+	if header.Size > s.maxUploadBytes {
+		writeError(w, http.StatusRequestEntityTooLarge, "file is too large")
 		return
 	}
-	if result.Size > s.maxUploadBytes {
-		_ = s.store.Delete(r.Context(), result.ID)
-		writeError(w, http.StatusRequestEntityTooLarge, "file is too large")
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	result, err := s.service.Upload(r.Context(), files.Upload{
+		Name: header.Filename, ContentType: contentType, Size: header.Size,
+		Content: part,
+	})
+	if err != nil {
+		s.internalError(w, "upload file", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, result)
 }
 
+func (s *server) get(w http.ResponseWriter, r *http.Request) {
+	result, err := s.service.Get(r.Context(), r.PathValue("id"))
+	if s.fileError(w, "get file", err) {
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (s *server) download(w http.ResponseWriter, r *http.Request) {
-	result, err := s.store.Open(r.Context(), r.PathValue("id"))
+	result, err := s.service.Open(r.Context(), r.PathValue("id"))
 	if s.fileError(w, "open file", err) {
 		return
 	}
-	defer result.Content.Close()
+	defer result.Body.Close()
 
 	w.Header().Set("Content-Type", result.ContentType)
 	w.Header().Set("Content-Length", fmt.Sprint(result.Size))
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": result.Name}))
-	_, _ = io.Copy(w, result.Content)
+	disposition := "inline"
+	if r.URL.Query().Get("download") == "true" {
+		disposition = "attachment"
+	}
+	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": result.Name}))
+	_, _ = io.Copy(w, result.Body)
 }
 
 func (s *server) delete(w http.ResponseWriter, r *http.Request) {
-	err := s.store.Delete(r.Context(), r.PathValue("id"))
+	err := s.service.Delete(r.Context(), r.PathValue("id"))
 	if s.fileError(w, "delete file", err) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *server) events(w http.ResponseWriter, r *http.Request) {
+	result, err := s.service.Events(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.internalError(w, "list file events", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"events": result})
 }
 
 func (s *server) fileError(w http.ResponseWriter, operation string, err error) bool {

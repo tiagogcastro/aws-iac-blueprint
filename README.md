@@ -26,6 +26,9 @@
 | `iam/eks` | EKS control-plane and node permissions | 2 roles and required policies |
 | `ecr` | Secure application image registry | `blueprint-dev-fileflow` |
 | `eks` | Kubernetes control plane and managed nodes | EKS 1.31 backed by local k3s |
+| `dynamodb` | File metadata and processing history | Files and events tables |
+| `sqs` | Asynchronous processing with retries | Processing queue and DLQ |
+| `iam/fileflow` | API and worker workload identities | Two least-privilege roles |
 
 Everything can be validated and applied without a real AWS account.
 
@@ -43,16 +46,16 @@ The same Terraform modules can target MiniStack locally or AWS by changing provi
   <img src=".github/assets/diagrams/target-fileflow.svg" width="100%" alt="FileFlow architecture path with a Go API and embedded web interface on EKS, images in ECR, and objects in S3" />
 </p>
 
-The first FileFlow version is implemented as one Go binary serving both a visual web interface and a file API. It already runs as a non-root local container with replaceable storage; ECR publishing, the EKS workload, workload identity, and S3 are the next infrastructure integrations.
+FileFlow uses one Go image in two modes: a horizontally scalable API and an asynchronous worker. S3 owns bytes, DynamoDB owns metadata and history, and SQS with a DLQ owns processing delivery. The local EKS deployment has separate workload identities for API and worker.
 
 ## What this project demonstrates
 
 - **Clear responsibility boundaries:** Terraform builds resources; Terragrunt wires environments and dependencies.
 - **Environment isolation:** CIDRs, storage behavior, registry retention, and EKS capacity come from `env.hcl`.
-- **Service-specific IAM:** S3 and EKS permissions are independent modules rather than one central IAM module.
+- **Service-specific IAM:** infrastructure and FileFlow workload permissions are separated, including distinct API and worker roles.
 - **Local EKS:** MiniStack exposes the EKS API and runs Kubernetes through a real k3s container.
 - **Safe image registry:** immutable ECR tags, scan on push, AES256 encryption, and lifecycle retention.
-- **Demonstrable workload:** responsive FileFlow UI and tested upload, list, download, delete, and health APIs in one Go binary.
+- **Demonstrable workload:** tested upload, S3 persistence, asynchronous processing, history, download, and deletion through EKS.
 - **Reproducible workflow:** format, validate, plan, apply, inspect, and destroy using the same dependency graph.
 
 ## Configuration flow
@@ -69,7 +72,7 @@ terraform/modules/<unit>   reusable AWS resources
 MiniStack locally          or AWS in a real account
 ```
 
-The current graph contains six units. `vpc`, `s3`, `ecr`, and `iam/eks` can start independently; `iam/s3` consumes the bucket ARN, while `eks` consumes private subnet IDs and EKS role ARNs.
+The current graph contains nine units. DynamoDB and SQS provision FileFlow state and messaging; `iam/fileflow` consumes their ARNs together with S3 and the EKS OIDC issuer.
 
 ## Quick start
 
@@ -110,9 +113,12 @@ docker exec ministack-eks-000000000000-us-east-1-blueprint-dev \
 - [x] ECR repository for FileFlow images
 - [x] FileFlow API in Go with an embedded visual web interface
 - [x] Tested non-root local container image
-- [ ] Immutable image publishing to ECR
-- [ ] Kubernetes workload, service, health checks, and ingress
-- [ ] Workload identity for least-privilege S3 access
+- [x] Immutable image publishing to local ECR
+- [x] Kubernetes API and worker deployments, service, probes, and resources
+- [x] Separate least-privilege workload identities for API and worker
+- [x] S3, DynamoDB, SQS, retries, DLQ, status, and processing history
+- [ ] React, TypeScript, and Tailwind interface
+- [ ] Authentication, ingress, and autoscaling
 - [ ] CI/CD, observability, security checks, and updated visual evidence
 
 ## Workflow

@@ -59,6 +59,8 @@ generate "provider" {
         ec2 = "${local.aws_endpoint}"
         ecr = "${local.aws_endpoint}"
         eks = "${local.aws_endpoint}"
+        dynamodb = "${local.aws_endpoint}"
+        sqs = "${local.aws_endpoint}"
         sts = "${local.aws_endpoint}"
       }
       %{~endif}

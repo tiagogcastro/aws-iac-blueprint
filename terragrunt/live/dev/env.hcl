@@ -32,6 +32,20 @@ locals {
   s3_data_layer         = "raw"
   s3_versioning_enabled = true
 
+  # FileFlow metadata and processing history.
+  dynamodb_files_table_suffix  = "fileflow-files"
+  dynamodb_events_table_suffix = "fileflow-events"
+  dynamodb_billing_mode        = "PAY_PER_REQUEST"
+  dynamodb_events_ttl_enabled  = false
+
+  # Asynchronous file processing and failed-message retention.
+  sqs_queue_suffix               = "fileflow-processing"
+  sqs_dlq_suffix                 = "fileflow-processing-dlq"
+  sqs_visibility_timeout_seconds = 60
+  sqs_message_retention_seconds  = 345600
+  sqs_receive_wait_time_seconds  = 20
+  sqs_max_receive_count          = 3
+
   # IAM access to the S3 bucket.
   s3_access_role_suffix         = "s3-raw-role"
   s3_trusted_service_principals = ["ec2.amazonaws.com"]
@@ -53,4 +67,10 @@ locals {
   eks_node_desired_size       = 1
   eks_node_min_size           = 1
   eks_node_max_size           = 2
+
+  # Kubernetes workload identity. Replace the local thumbprint in real AWS.
+  fileflow_kubernetes_namespace   = "fileflow"
+  fileflow_api_service_account    = "fileflow-api"
+  fileflow_worker_service_account = "fileflow-worker"
+  fileflow_oidc_thumbprint        = "0000000000000000000000000000000000000000"
 }
