@@ -7,6 +7,7 @@
   <img src="https://img.shields.io/badge/Terragrunt-%3E%3D_0.50-334E68?style=flat-square" alt="Terragrunt 0.50 or newer" />
   <img src="https://img.shields.io/badge/AWS_Provider-5.x-FF9900?style=flat-square&logo=amazonwebservices&logoColor=232F3E" alt="AWS Provider 5" />
   <img src="https://img.shields.io/badge/Kubernetes-1.31-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes 1.31" />
+  <img src="https://img.shields.io/badge/Go-1.27-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.27" />
   <img src="https://img.shields.io/badge/local-MiniStack-173F5F?style=flat-square&logo=docker&logoColor=white" alt="MiniStack local AWS emulator" />
 </p>
 
@@ -36,13 +37,13 @@ Everything can be validated and applied without a real AWS account.
 
 The same Terraform modules can target MiniStack locally or AWS by changing provider configuration. Environment capacity and behavior stay in `live/<env>/env.hcl`; reusable implementation stays outside the environment directories.
 
-### Planned application slice
+### FileFlow application path
 
 <p align="center">
-  <img src=".github/assets/diagrams/target-fileflow.svg" width="100%" alt="Planned FileFlow architecture with a Go API and embedded web interface on EKS, images in ECR, and objects in S3" />
+  <img src=".github/assets/diagrams/target-fileflow.svg" width="100%" alt="FileFlow architecture path with a Go API and embedded web interface on EKS, images in ECR, and objects in S3" />
 </p>
 
-The first FileFlow version is planned as one Go binary serving both a visual web interface and a file API. This keeps the first container and Kubernetes deployment small while still demonstrating ECR publishing, EKS workloads, workload identity, and S3 integration. A separate frontend can be introduced later if the product needs it.
+The first FileFlow version is implemented as one Go binary serving both a visual web interface and a file API. It already runs as a non-root local container with replaceable storage; ECR publishing, the EKS workload, workload identity, and S3 are the next infrastructure integrations.
 
 ## What this project demonstrates
 
@@ -51,6 +52,7 @@ The first FileFlow version is planned as one Go binary serving both a visual web
 - **Service-specific IAM:** S3 and EKS permissions are independent modules rather than one central IAM module.
 - **Local EKS:** MiniStack exposes the EKS API and runs Kubernetes through a real k3s container.
 - **Safe image registry:** immutable ECR tags, scan on push, AES256 encryption, and lifecycle retention.
+- **Demonstrable workload:** responsive FileFlow UI and tested upload, list, download, delete, and health APIs in one Go binary.
 - **Reproducible workflow:** format, validate, plan, apply, inspect, and destroy using the same dependency graph.
 
 ## Configuration flow
@@ -98,6 +100,7 @@ docker exec ministack-eks-000000000000-us-east-1-blueprint-dev \
 |---|---|
 | [Getting started](docs/getting-started.md) | Prerequisites, apply, inspection, Kubernetes commands, and cleanup |
 | [Architecture](docs/architecture.md) | Design decisions, dependency graph, modules, environments, and AWS comparison |
+| [FileFlow](applications/fileflow/README.md) | Application API, Docker usage, and runtime configuration |
 
 ## Roadmap
 
@@ -105,8 +108,9 @@ docker exec ministack-eks-000000000000-us-east-1-blueprint-dev \
 - [x] VPC, S3, and service-specific IAM
 - [x] EKS 1.31 with a local k3s node
 - [x] ECR repository for FileFlow images
-- [ ] FileFlow API in Go with an embedded visual web interface
-- [ ] Container build and image publishing
+- [x] FileFlow API in Go with an embedded visual web interface
+- [x] Tested non-root local container image
+- [ ] Immutable image publishing to ECR
 - [ ] Kubernetes workload, service, health checks, and ingress
 - [ ] Workload identity for least-privilege S3 access
 - [ ] CI/CD, observability, security checks, and updated visual evidence

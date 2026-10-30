@@ -1,0 +1,36 @@
+:root {
+  color-scheme: dark;
+  --bg: #07111f;
+  --panel: rgb(16 35 53 / 78%);
+  --line: rgb(158 196 216 / 15%);
+  --text: #f5f8fa;
+  --muted: #9bb0bf;
+  --cyan: #43d3e8;
+  --orange: #ff9f43;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: radial-gradient(circle at 50% -20%, #173a50, var(--bg) 48%);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+button {
+  font: inherit;
+}
+.shell {
+  width: min(1120px, calc(100% - 40px));
+  margin-inline: auto;
+}
+.eyebrow {
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}

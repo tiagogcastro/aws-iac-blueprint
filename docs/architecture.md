@@ -74,7 +74,7 @@ There is no intermediate IAM composition module.
 - Lifecycle policy retaining the latest 10 images in `dev`.
 - `force_delete` enabled only through the environment value for disposable local development.
 
-The repository exists before the FileFlow application so future build and deployment steps have a stable image destination.
+The repository was provisioned before the FileFlow application so build and deployment steps have a stable image destination.
 
 ### EKS
 
@@ -85,7 +85,7 @@ The repository exists before the FileFlow application so future build and deploy
 
 In AWS, a managed node group creates and maintains EC2 worker instances through managed scaling infrastructure. The EKS control plane is AWS-managed and does not appear as EC2 instances in the account. MiniStack represents the local cluster with one k3s Docker container instead of real EC2 instances.
 
-## Planned FileFlow slice
+## FileFlow application slice
 
 The initial application is intentionally small enough to explain end to end:
 
@@ -100,9 +100,11 @@ FileFlow Go application on EKS
 CI build → ECR image → Kubernetes deployment
 ```
 
+The implemented application in `applications/fileflow` uses only the Go standard library. One binary embeds the responsive interface and exposes health, upload, list, download, and delete endpoints. The storage interface currently has a filesystem adapter, keeping local execution immediate while establishing the boundary for the future S3 adapter.
+
 One binary and one image match the current `blueprint-dev-fileflow` repository. This avoids creating frontend and backend repositories before the application needs separate release cycles. The frontend can become an independent application and image later without changing the infrastructure layering principles.
 
-No FileFlow workload, ingress, CI pipeline, or workload identity is provisioned yet. The target diagram in the main README is explicitly marked as planned.
+The local non-root container is implemented and tested. No ECR image, FileFlow Kubernetes workload, ingress, CI pipeline, or workload identity is provisioned yet. Those cloud-facing elements remain explicitly marked as planned in the target diagram.
 
 ## Environment values
 

@@ -1,0 +1,86 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 28px;
+}
+.hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 40px;
+  padding: 76px 0 58px;
+}
+.hero h1 {
+  margin: 16px 0 20px;
+  font-size: clamp(48px, 7vw, 88px);
+  line-height: 0.96;
+  letter-spacing: -0.055em;
+}
+.hero h1 em {
+  color: var(--orange);
+  font-style: normal;
+}
+.hero p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.65;
+}
+.metric {
+  min-width: 150px;
+  padding: 22px;
+  border-left: 1px solid var(--line);
+}
+.metric span {
+  display: block;
+  font-size: 40px;
+  font-weight: 750;
+}
+.metric small {
+  color: var(--muted);
+}
+.files-section {
+  padding: 70px 0 90px;
+}
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 22px;
+}
+.section-title h2 {
+  margin: 8px 0 0;
+  font-size: 30px;
+}
+
+@media (max-width: 720px) {
+  .shell {
+    width: min(100% - 24px, 1120px);
+  }
+  .hero {
+    grid-template-columns: 1fr;
+    padding-top: 48px;
+  }
+  .metric {
+    display: none;
+  }
+  .upload-card {
+    align-items: flex-start;
+    padding: 26px 22px;
+  }
+  .file-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding-inline: 15px;
+  }
+  .download {
+    display: none;
+  }
+  .status {
+    font-size: 0;
+  }
+  .status i {
+    margin: 0;
+  }
+}
